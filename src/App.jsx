@@ -6,6 +6,7 @@ function App() {
   return (
     <div className="App">
       <AppRoutes /> {/* Render the routing component */}
+      <p></p>
     </div>
   );
 }
@@ -13,3 +14,4 @@ function App() {
 export default App;
 
 //This is a app.jsx comment 
+// This is another comment for resolving conflicts.
