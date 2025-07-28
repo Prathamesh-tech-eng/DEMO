@@ -1,0 +1,181 @@
+import React, { useState } from 'react';
+import RiskAnalysisResults from '../components/ui/RiskAnalysisResults';
+import LoadingWrapper from '../components/ui/LoadingWrapper';
+import { useDropzone } from 'react-dropzone';
+import { InboxOutlined, PictureAsPdf } from '@mui/icons-material';
+import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material';
+
+const backend_url = import.meta.env.VITE_BACKEND_URL;
+
+const PDFRiskAnalysisPage = () => {
+    const [analysisResults, setAnalysisResults] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState(null);
+    const [uploadedFileName, setUploadedFileName] = useState('');
+    const [analysisSuccess, setAnalysisSuccess] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState(null);
+    const [documentType, setDocumentType] = useState('legal'); // NEW STATE
+
+    const handleFileUpload = async (file) => {
+        setIsAnalyzing(true);
+        setAnalysisError(null);
+        setAnalysisResults(null);
+        setAnalysisSuccess(false);
+
+        try {
+            const formData = new FormData();
+            formData.append('pdfFile', file);
+            formData.append('documentType', documentType); // NEW FIELD
+
+            const response = await fetch(backend_url, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            setAnalysisResults(data.results);
+            setAnalysisSuccess(true);
+        } catch (error) {
+            console.error("Analysis Error:", error);
+            setAnalysisError("Failed to analyze PDF. Please try again.");
+            setAnalysisSuccess(false);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleSubmitAnalysis = () => {
+        if (uploadedFile) {
+            handleFileUpload(uploadedFile);
+        } else {
+            setAnalysisError("Please upload a PDF file first.");
+        }
+    };
+
+    const onDrop = acceptedFiles => {
+        if (acceptedFiles && acceptedFiles[0]) {
+            setUploadedFile(acceptedFiles[0]);
+            setUploadedFileName(acceptedFiles[0].name);
+            setAnalysisError(null);
+        }
+    };
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop: onDrop,
+        accept: { 'application/pdf': ['.pdf'] },
+        maxFiles: 1
+    });
+
+    const handleFileInputChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setUploadedFile(e.target.files[0]);
+            setUploadedFileName(e.target.files[0].name);
+            setAnalysisError(null);
+        }
+    };
+
+    return (
+        <LoadingWrapper loading={isAnalyzing}>
+            <div className="bg-yellow-50 max-h-screen flex justify-center font-sans">
+                <div className="container mx-auto px-6 py-12 max-w-6xl bg-white shadow-xl rounded-xl overflow-hidden mt-10 mb-10">
+                    <h2 className="text-4xl font-bold text-gray-800 mb-8 text-center md:mb-10 lg:mb-12">
+                        <span className="text-orange-500">Leagal</span> Document Translation
+                    </h2>
+                    <div className="flex flex-col lg:flex-row shadow-md rounded-lg overflow-hidden">
+                        <div className="flex-1 p-6 lg:p-8 border-b lg:border-r lg:border-b-0 border-gray-200 bg-gray-50 flex flex-col justify-between">
+                            
+                            {/* Document Type Selector */}
+                            <div className="mb-6">
+                                <label htmlFor="document-type" className="block text-gray-700 font-medium mb-2">
+                                    Select Document Type:
+                                </label>
+                                <select
+                                    id="document-type"
+                                    value={documentType}
+                                    onChange={(e) => setDocumentType(e.target.value)}
+                                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500"
+                                >
+                                    <option value="legal">Marathi</option>
+                                    <option value="medical">Hindi</option>
+                                    <option value="technical">Gujrati</option>
+                                    <option value="general">Gondi</option>
+                                </select>
+                            </div>
+
+                            <div className="mb-4 lg:mb-6">
+                                <div {...getRootProps()} className={`rounded-md p-6 lg:p-8 cursor-pointer border-2 border-dashed ${isDragActive ? 'border-orange-500 bg-yellow-100' : 'border-gray-400 hover:border-orange-500 bg-white'} transition-colors duration-200`}>
+                                    <input {...getInputProps()} id="file-upload-input" onChange={handleFileInputChange} />
+                                    <div className="flex flex-col items-center justify-center">
+                                        {uploadedFileName ? (
+                                            <>
+                                                <PictureAsPdf style={{ fontSize: 80, color: '#FB923C' }} />
+                                                <p className="text-gray-700 mt-4 text-lg text-center">
+                                                    Uploaded: <span className="font-semibold">{uploadedFileName}</span>
+                                                </p>
+                                                <p className="text-gray-600 text-sm mt-1">
+                                                    Click or drag to replace PDF file
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <InboxOutlined style={{ fontSize: 80, color: '#9ca3af' }} />
+                                                <p className="text-gray-600 mt-4 text-lg text-center">
+                                                    <span className="font-semibold text-orange-600 hover:underline cursor-pointer" onClick={() => document.getElementById('file-upload-input').click()}>
+                                                        Drag and drop PDF here or browse files
+                                                    </span>
+                                                </p>
+                                                <p className="text-gray-500 text-sm mt-2">(Only *.pdf files are supported)</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Submit Button */}
+                                <div className="mt-4 flex justify-center">
+                                    <button
+                                        onClick={handleSubmitAnalysis}
+                                        disabled={!uploadedFile || isAnalyzing}
+                                        className={`bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-md focus:outline-none focus:shadow-outline text-lg ${!uploadedFile || isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        Translate PDF
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 lg:mt-0">
+                                {analysisError && (
+                                    <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-md flex items-center space-x-2">
+                                        <ErrorOutline className="mr-2" />
+                                        <p>{analysisError}</p>
+                                    </div>
+                                )}
+                                {analysisSuccess && analysisResults && (
+                                    <div className="mt-4 p-4 bg-green-100 text-green-700 rounded-md flex items-center space-x-2">
+                                        <CheckCircleOutline className="mr-2" />
+                                        <p>Translation successful. Results are shown below.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 p-6 lg:p-8 bg-white">
+                            <div className="bg-yellow-50 p-6 rounded-md shadow-inner h-full flex flex-col justify-start" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                                <h3 className="text-2xl font-semibold text-gray-700 mb-6 border-b pb-3">Translation Results</h3>
+                                <div className="overflow-auto">
+                                    <RiskAnalysisResults analysisResults={analysisResults} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </LoadingWrapper>
+    );
+};
+
+export default PDFRiskAnalysisPage;
